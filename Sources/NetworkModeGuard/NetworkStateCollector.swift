@@ -111,18 +111,24 @@ struct NetworkStateCollector {
 
         return result.output
             .split(whereSeparator: \.isNewline)
-            .compactMap { line in
+            .compactMap { line -> VPNServiceSnapshot? in
                 let text = String(line).trimmingCharacters(in: .whitespaces)
                 guard let open = text.firstIndex(of: "("),
                       let close = text[open...].firstIndex(of: ")") else { return nil }
                 let stateText = String(text[text.index(after: open)..<close]).lowercased()
-                let nameStart = text.index(after: close)
-                let name = String(text[nameStart...]).trimmingCharacters(in: .whitespaces)
+                let remainder = String(text[text.index(after: close)...]).trimmingCharacters(in: .whitespaces)
+                let name = quotedName(in: remainder) ?? remainder
                 guard !name.isEmpty else { return nil }
+                let providerIdentifier = providerIdentifier(in: remainder)
+                let serviceID = remainder
+                    .split(whereSeparator: { $0 == " " || $0 == "\t" })
+                    .first(where: { UUID(uuidString: String($0)) != nil })
+                    .map(String.init)
                 return VPNServiceSnapshot(
-                    id: "vpn:\(stableIdentifier(for: name))",
+                    id: "vpn:\(serviceID ?? stableIdentifier(for: name))",
                     name: name,
-                    state: vpnState(from: stateText)
+                    state: vpnState(from: stateText),
+                    providerIdentifier: providerIdentifier
                 )
             }
     }
@@ -158,6 +164,18 @@ struct NetworkStateCollector {
         if value.contains("disconnecting") { return .disconnecting }
         if value.contains("disconnected") { return .disconnected }
         return .unknown
+    }
+
+    private func providerIdentifier(in value: String) -> String? {
+        guard let start = value.range(of: "VPN ("),
+              let end = value[start.upperBound...].firstIndex(of: ")") else { return nil }
+        return String(value[start.upperBound..<end])
+    }
+
+    private func quotedName(in value: String) -> String? {
+        guard let start = value.firstIndex(of: "\""),
+              let end = value[value.index(after: start)...].firstIndex(of: "\"") else { return nil }
+        return String(value[value.index(after: start)..<end])
     }
 
     private func stableServiceID(for name: String) -> String {

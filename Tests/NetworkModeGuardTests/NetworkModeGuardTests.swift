@@ -12,6 +12,7 @@ func collectorParsesProxyVPNAndRouteEvidence() {
         proxyHost: "127.0.0.1",
         proxyPort: 7890,
         vpnServiceName: nil,
+        isUserConfirmed: true,
         isOperationallyVerified: true
     )
     let responses: [String: CommandResult] = [
@@ -49,6 +50,7 @@ func classifierIdentifiesClashProxyWhenPortIsReady() {
         proxyHost: "127.0.0.1",
         proxyPort: 7890,
         vpnServiceName: nil,
+        isUserConfirmed: true,
         isOperationallyVerified: true
     )
     let snapshot = NetworkSnapshot(
@@ -96,6 +98,31 @@ func classifierBlocksUnknownProxyInsteadOfGuessingClient() {
 
     #expect(assessment.mode == .unknown)
     #expect(assessment.blockers.contains("检测到未登记或无法匹配的网络接管层"))
+}
+
+@Test
+func classifierSuggestsPalantirBindingFromProviderEvidence() {
+    let snapshot = NetworkSnapshot(
+        collectedAt: .now,
+        services: [],
+        vpnServices: [VPNServiceSnapshot(
+            id: "vpn:242e0168-88e1-4299-aac6-6724c9bc4306",
+            name: "Palantir",
+            state: .connected,
+            providerIdentifier: "com.ai.security.palantir.mac"
+        )],
+        defaultInterface: "utun4",
+        portObservations: [],
+        dnsCheck: .notChecked,
+        httpsCheck: .notChecked
+    )
+
+    let assessment = ModeClassifier(profiles: ModeProfile.defaults).assess(snapshot)
+
+    #expect(assessment.mode == .palantirVPN)
+    #expect(assessment.summary == "已自动识别，等待确认登记")
+    #expect(assessment.suggestedProfile?.vpnServiceName == "Palantir")
+    #expect(assessment.suggestedProfile?.providerIdentifier == "com.ai.security.palantir.mac")
 }
 
 @Test

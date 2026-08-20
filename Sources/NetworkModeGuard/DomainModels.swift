@@ -77,6 +77,7 @@ struct VPNServiceSnapshot: Codable, Equatable, Hashable, Sendable, Identifiable 
     let id: String
     let name: String
     let state: VPNConnectionState
+    let providerIdentifier: String?
 
     var isActive: Bool { state.isActive }
 }
@@ -139,14 +140,17 @@ struct ModeProfile: Codable, Equatable, Hashable, Identifiable, Sendable {
     var proxyHost: String?
     var proxyPort: Int?
     var vpnServiceName: String?
+    var providerIdentifier: String? = nil
+    var isUserConfirmed: Bool = false
     var isOperationallyVerified: Bool
 
     var isConfigured: Bool {
+        guard isUserConfirmed else { return false }
         switch mode {
-        case .direct: true
-        case .clashProxy: networkServiceID != nil && proxyHost != nil && proxyPort != nil
-        case .surgeVPN, .palantirVPN: vpnServiceName != nil
-        case .conflict, .unknown: false
+        case .direct: return true
+        case .clashProxy: return networkServiceID != nil && proxyHost != nil && proxyPort != nil
+        case .surgeVPN, .palantirVPN: return vpnServiceName != nil
+        case .conflict, .unknown: return false
         }
     }
 
@@ -165,6 +169,7 @@ struct ModeProfile: Codable, Equatable, Hashable, Identifiable, Sendable {
             proxyHost: nil,
             proxyPort: nil,
             vpnServiceName: nil,
+            isUserConfirmed: true,
             isOperationallyVerified: true
         ),
         ModeProfile(
@@ -184,7 +189,8 @@ struct ModeProfile: Codable, Equatable, Hashable, Identifiable, Sendable {
             networkServiceID: nil,
             proxyHost: nil,
             proxyPort: nil,
-            vpnServiceName: nil,
+            vpnServiceName: "Surge",
+            providerIdentifier: "com.nssurge.surge-mac",
             isOperationallyVerified: false
         ),
         ModeProfile(
@@ -194,7 +200,8 @@ struct ModeProfile: Codable, Equatable, Hashable, Identifiable, Sendable {
             networkServiceID: nil,
             proxyHost: nil,
             proxyPort: nil,
-            vpnServiceName: nil,
+            vpnServiceName: "Palantir",
+            providerIdentifier: "com.ai.security.palantir.mac",
             isOperationallyVerified: false
         )
     ]
@@ -206,6 +213,23 @@ struct ModeAssessment: Equatable, Sendable {
     let summary: String
     let evidence: [String]
     let blockers: [String]
+    let suggestedProfile: ModeProfile?
+
+    init(
+        mode: NetworkMode,
+        confidence: Int,
+        summary: String,
+        evidence: [String],
+        blockers: [String],
+        suggestedProfile: ModeProfile? = nil
+    ) {
+        self.mode = mode
+        self.confidence = confidence
+        self.summary = summary
+        self.evidence = evidence
+        self.blockers = blockers
+        self.suggestedProfile = suggestedProfile
+    }
 
     var isHealthy: Bool { blockers.isEmpty && mode != .conflict && mode != .unknown }
 }

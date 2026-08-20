@@ -74,6 +74,14 @@ struct NetworkModeGuardView: View {
                 Text(appState.assessment.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let suggestion = appState.assessment.suggestedProfile {
+                    Button("确认登记 \(suggestion.displayName)") {
+                        appState.confirmSuggestedMode()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.blue)
+                }
             }
             Spacer()
             Text("\(appState.assessment.confidence)%")
@@ -96,7 +104,11 @@ struct NetworkModeGuardView: View {
             }
 
             ForEach(appState.profiles.filter { [.direct, .clashProxy, .surgeVPN, .palantirVPN].contains($0.mode) }) { profile in
-                ModeRow(profile: profile, currentMode: appState.assessment.mode) {
+                ModeRow(
+                    profile: profile,
+                    currentMode: appState.assessment.mode,
+                    isSuggested: profile.mode == appState.assessment.suggestedProfile?.mode
+                ) {
                     appState.prepareTransition(to: profile)
                 }
             }
@@ -119,6 +131,7 @@ struct NetworkModeGuardView: View {
 private struct ModeRow: View {
     let profile: ModeProfile
     let currentMode: NetworkMode
+    let isSuggested: Bool
     let action: () -> Void
 
     var body: some View {
@@ -130,7 +143,7 @@ private struct ModeRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(profile.displayName)
                         .foregroundStyle(.primary)
-                    Text(profile.capabilityDescription)
+                    Text(isSuggested ? "已自动发现，待确认" : profile.capabilityDescription)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -324,16 +337,17 @@ struct ProfileRegistrationView: View {
             return
         }
 
-        appState.save(profile: ModeProfile(
+            appState.save(profile: ModeProfile(
             id: id,
             mode: mode,
             displayName: displayName,
             networkServiceID: mode == .clashProxy ? serviceID.nilIfEmpty : nil,
             proxyHost: mode == .clashProxy ? proxyHost.nilIfEmpty : nil,
-            proxyPort: mode == .clashProxy ? Int(proxyPort) : nil,
-            vpnServiceName: mode == .clashProxy ? nil : vpnServiceName.nilIfEmpty,
-            isOperationallyVerified: false
-        ))
+                proxyPort: mode == .clashProxy ? Int(proxyPort) : nil,
+                vpnServiceName: mode == .clashProxy ? nil : vpnServiceName.nilIfEmpty,
+                isUserConfirmed: true,
+                isOperationallyVerified: false
+            ))
         dismiss()
     }
 }

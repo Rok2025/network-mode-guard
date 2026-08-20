@@ -5,13 +5,13 @@ struct ModeClassifier {
 
     func assess(_ snapshot: NetworkSnapshot) -> ModeAssessment {
         let clashMatches = profiles.filter { profile in
-            profile.mode == .clashProxy && matchesClash(profile, snapshot: snapshot)
+            profile.mode == .clashProxy && profile.isUserConfirmed && matchesClash(profile, snapshot: snapshot)
         }
-        let vpnMatches = profiles.filter { profile in
-            [.surgeVPN, .palantirVPN].contains(profile.mode) && matchesVPN(profile, snapshot: snapshot)
+        let detectedVPNs = snapshot.activeVPNServices.compactMap { vpn -> (NetworkMode, VPNServiceSnapshot)? in
+            guard let mode = detectedMode(for: vpn) else { return nil }
+            return (mode, vpn)
         }
-
-        let activeKnownModes = Set((clashMatches + vpnMatches).map(\.mode))
+        let activeKnownModes = Set(clashMatches.map(\.mode) + detectedVPNs.map(\.0))
         let activeProxyCount = snapshot.activeProxies.count
         let activeVPNCount = snapshot.activeVPNServices.count
         var evidence: [String] = []
@@ -25,6 +25,7 @@ struct ModeClassifier {
 
         if activeVPNCount > 0 {
             evidence.append("检测到 \(activeVPNCount) 个活动 VPN 服务")
+            evidence.append(contentsOf: detectedVPNs.map { "自动识别：\($0.1.name)（\($0.0.title)）" })
         } else {
             evidence.append("没有活动 VPN 服务")
         }
@@ -33,7 +34,7 @@ struct ModeClassifier {
             evidence.append("默认路由接口：\(interfaceName)")
         }
 
-        if activeKnownModes.count > 1 || activeVPNCount > 1 {
+        if activeKnownModes.count > 1 || activeVPNCount > 1 || (activeProxyCount > 0 && activeVPNCount > 0) {
             blockers.append("多个网络接管层同时生效")
             return ModeAssessment(
                 mode: .conflict,
@@ -45,16 +46,23 @@ struct ModeClassifier {
         }
 
         if let mode = activeKnownModes.first {
-            let profile = profiles.first(where: { $0.mode == mode })
+            let detectedVPN = detectedVPNs.first(where: { $0.0 == mode })?.1
+            let profile = profileFor(mode: mode, detectedVPN: detectedVPN)
+            var suggestedProfile: ModeProfile?
+            if !profile.isUserConfirmed {
+                blockers.append("已自动识别，等待用户确认登记")
+                suggestedProfile = profile
+            }
             if mode == .clashProxy && !hasListeningClashPort(profile: profile, snapshot: snapshot) {
                 blockers.append("系统代理指向的 Clash 本地端口未确认监听")
             }
             return ModeAssessment(
                 mode: mode,
-                confidence: blockers.isEmpty ? 95 : 70,
-                summary: blockers.isEmpty ? "已匹配登记的网络模式" : "已匹配模式，但目标接管尚未就绪",
+                confidence: blockers.isEmpty ? 95 : 90,
+                summary: profile.isUserConfirmed ? "已识别登记的网络模式" : "已自动识别，等待确认登记",
                 evidence: evidence,
-                blockers: blockers
+                blockers: blockers,
+                suggestedProfile: suggestedProfile
             )
         }
 
@@ -62,7 +70,7 @@ struct ModeClassifier {
             return ModeAssessment(
                 mode: .direct,
                 confidence: 90,
-                summary: "未发现已登记代理或 VPN 接管",
+                summary: "未发现代理或 VPN 接管，当前为直连",
                 evidence: evidence,
                 blockers: []
             )
@@ -75,6 +83,32 @@ struct ModeClassifier {
             summary: "无法安全匹配当前网络模式",
             evidence: evidence,
             blockers: blockers
+        )
+    }
+
+    private func detectedMode(for vpn: VPNServiceSnapshot) -> NetworkMode? {
+        let provider = vpn.providerIdentifier?.lowercased() ?? ""
+        let name = vpn.name.lowercased()
+        if provider.contains("palantir") || name.contains("palantir") { return .palantirVPN }
+        if provider.contains("surge") || name.contains("surge") { return .surgeVPN }
+        return nil
+    }
+
+    private func profileFor(mode: NetworkMode, detectedVPN: VPNServiceSnapshot?) -> ModeProfile {
+        if let profile = profiles.first(where: { $0.mode == mode }) {
+            return profile
+        }
+        return ModeProfile(
+            id: mode.rawValue,
+            mode: mode,
+            displayName: mode.title,
+            networkServiceID: nil,
+            proxyHost: nil,
+            proxyPort: nil,
+            vpnServiceName: detectedVPN?.name,
+            providerIdentifier: detectedVPN?.providerIdentifier,
+            isUserConfirmed: false,
+            isOperationallyVerified: false
         )
     }
 
@@ -93,9 +127,8 @@ struct ModeClassifier {
         return snapshot.vpnServices.contains { $0.name == vpnName && $0.isActive }
     }
 
-    private func hasListeningClashPort(profile: ModeProfile?, snapshot: NetworkSnapshot) -> Bool {
-        guard let profile,
-              let host = profile.proxyHost,
+    private func hasListeningClashPort(profile: ModeProfile, snapshot: NetworkSnapshot) -> Bool {
+        guard let host = profile.proxyHost,
               let port = profile.proxyPort else { return false }
         return snapshot.portObservations.contains { $0.host == host && $0.port == port && $0.isListening }
     }

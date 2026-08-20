@@ -10,7 +10,8 @@ final class AppState: ObservableObject {
         confidence: 0,
         summary: "尚未采集网络状态",
         evidence: [],
-        blockers: []
+        blockers: [],
+        suggestedProfile: nil
     )
     @Published private(set) var transitionPlan: TransitionPlan?
     @Published private(set) var isRefreshing = false
@@ -44,6 +45,22 @@ final class AppState: ObservableObject {
             to: profile,
             snapshot: snapshot
         )
+    }
+
+    func confirmSuggestedMode() {
+        guard let suggestedProfile = assessment.suggestedProfile else { return }
+        save(profile: ModeProfile(
+            id: suggestedProfile.id,
+            mode: suggestedProfile.mode,
+            displayName: suggestedProfile.displayName,
+            networkServiceID: suggestedProfile.networkServiceID,
+            proxyHost: suggestedProfile.proxyHost,
+            proxyPort: suggestedProfile.proxyPort,
+            vpnServiceName: suggestedProfile.vpnServiceName,
+            providerIdentifier: suggestedProfile.providerIdentifier,
+            isUserConfirmed: true,
+            isOperationallyVerified: false
+        ))
     }
 
     func save(profile: ModeProfile) {
