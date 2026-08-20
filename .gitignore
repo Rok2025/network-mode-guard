@@ -1,0 +1,11 @@
+.build/
+.swiftpm/
+DerivedData/
+*.xcworkspace
+*.xcodeproj/xcuserdata/
+*.xcuserstate
+*.pem
+*.key
+.env
+.env.*
+diagnostics/
