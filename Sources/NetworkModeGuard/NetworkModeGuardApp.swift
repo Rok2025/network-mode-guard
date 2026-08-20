@@ -26,7 +26,7 @@ private struct MenuBarMenuView: View {
 
     var body: some View {
         Button("打开主窗口") {
-            openWindow(id: "main")
+            openMainWindow()
         }
         Text("当前：\(appState.assessment.mode.title)")
         Divider()
@@ -35,6 +35,16 @@ private struct MenuBarMenuView: View {
         }
         Button("退出") {
             NSApplication.shared.terminate(nil)
+        }
+    }
+
+    private func openMainWindow() {
+        openWindow(id: "main")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            NSApplication.shared.windows
+                .first(where: { $0.title == "Network Mode Guard" })?
+                .makeKeyAndOrderFront(nil)
         }
     }
 }
