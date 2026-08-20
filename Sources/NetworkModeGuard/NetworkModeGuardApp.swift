@@ -6,15 +6,41 @@ struct NetworkModeGuardApp: App {
     @StateObject private var appState = AppState()
 
     var body: some Scene {
-        MenuBarExtra("Network Mode Guard", systemImage: "network") {
+        MenuBarExtra("Network Mode Guard", systemImage: appState.assessment.mode.systemImage) {
+            MenuBarMenuView()
+                .environmentObject(appState)
+        }
+        .menuBarExtraStyle(.menu)
+
+        WindowGroup("Network Mode Guard", id: "main") {
             NetworkModeGuardView()
                 .environmentObject(appState)
         }
-        .menuBarExtraStyle(.window)
+        .defaultSize(width: 430, height: 560)
+    }
+}
+
+private struct MenuBarMenuView: View {
+    @Environment(\.openWindow) private var openWindow
+    @EnvironmentObject private var appState: AppState
+
+    var body: some View {
+        Button("打开主窗口") {
+            openWindow(id: "main")
+        }
+        Text("当前：\(appState.assessment.mode.title)")
+        Divider()
+        Button("重新采集") {
+            appState.refresh()
+        }
+        Button("退出") {
+            NSApplication.shared.terminate(nil)
+        }
     }
 }
 
 struct NetworkModeGuardView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
     @State private var showingDiagnostics = false
     @State private var showingRegistration = false
@@ -129,6 +155,9 @@ struct NetworkModeGuardView: View {
             Button("查看诊断") { showingDiagnostics = true }
                 .buttonStyle(.borderless)
             Spacer()
+            Button("关闭窗口") { dismiss() }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
             Button("退出") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
