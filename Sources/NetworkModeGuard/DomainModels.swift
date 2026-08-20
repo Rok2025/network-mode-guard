@@ -12,7 +12,7 @@ enum NetworkMode: String, CaseIterable, Codable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .direct: "直连"
+        case .direct: "未接管（直连）"
         case .clashProxy: "Clash 代理"
         case .surgeVPN: "Surge VPN"
         case .palantirVPN: "Palantir VPN"
@@ -164,7 +164,7 @@ struct ModeProfile: Codable, Equatable, Hashable, Identifiable, Sendable {
         ModeProfile(
             id: "direct",
             mode: .direct,
-            displayName: "直连",
+            displayName: "未接管（直连）",
             networkServiceID: nil,
             proxyHost: nil,
             proxyPort: nil,
