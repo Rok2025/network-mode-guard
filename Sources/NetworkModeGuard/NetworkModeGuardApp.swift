@@ -7,45 +7,10 @@ struct NetworkModeGuardApp: App {
 
     var body: some Scene {
         MenuBarExtra("Network Mode Guard", systemImage: "network") {
-            MenuBarMenuView()
-                .environmentObject(appState)
-        }
-        .menuBarExtraStyle(.menu)
-
-        WindowGroup("Network Mode Guard", id: "main") {
             NetworkModeGuardView()
                 .environmentObject(appState)
         }
-        .defaultSize(width: 430, height: 560)
-    }
-}
-
-private struct MenuBarMenuView: View {
-    @Environment(\.openWindow) private var openWindow
-    @EnvironmentObject private var appState: AppState
-
-    var body: some View {
-        Button("打开主窗口") {
-            openMainWindow()
-        }
-        Text("当前：\(appState.assessment.mode.title)")
-        Divider()
-        Button("重新采集") {
-            appState.refresh()
-        }
-        Button("退出") {
-            NSApplication.shared.terminate(nil)
-        }
-    }
-
-    private func openMainWindow() {
-        openWindow(id: "main")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            NSApplication.shared.windows
-                .first(where: { $0.title == "Network Mode Guard" })?
-                .makeKeyAndOrderFront(nil)
-        }
+        .menuBarExtraStyle(.window)
     }
 }
 
