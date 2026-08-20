@@ -3,19 +3,14 @@ import SwiftUI
 
 @main
 struct NetworkModeGuardApp: App {
-    @StateObject private var appState = AppState()
+    @NSApplicationDelegateAdaptor(StatusBarAppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Network Mode Guard", systemImage: "network") {
-            NetworkModeGuardView()
-                .environmentObject(appState)
-        }
-        .menuBarExtraStyle(.window)
+        Settings { EmptyView() }
     }
 }
 
 struct NetworkModeGuardView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
     @State private var showingDiagnostics = false
     @State private var showingRegistration = false
@@ -130,7 +125,9 @@ struct NetworkModeGuardView: View {
             Button("查看诊断") { showingDiagnostics = true }
                 .buttonStyle(.borderless)
             Spacer()
-            Button("关闭窗口") { dismiss() }
+            Button("关闭窗口") {
+                NotificationCenter.default.post(name: .closeNetworkModeGuardPopover, object: nil)
+            }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
             Button("退出") { NSApplication.shared.terminate(nil) }
