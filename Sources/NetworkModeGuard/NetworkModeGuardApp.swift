@@ -20,6 +20,28 @@ struct NetworkModeGuardView: View {
     @State private var showingRegistration = false
 
     var body: some View {
+        Group {
+            if showingDiagnostics {
+                DiagnosticsView {
+                    showingDiagnostics = false
+                }
+                .environmentObject(appState)
+            } else {
+                mainContent
+            }
+        }
+        .padding(16)
+        .frame(width: 430)
+        .task {
+            if appState.snapshot == .empty { appState.refresh() }
+        }
+        .sheet(isPresented: $showingRegistration) {
+            ProfileRegistrationView()
+                .environmentObject(appState)
+        }
+    }
+
+    private var mainContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
             currentModeCard
@@ -31,19 +53,6 @@ struct NetworkModeGuardView: View {
 
             Divider()
             footer
-        }
-        .padding(16)
-        .frame(width: 430)
-        .task {
-            if appState.snapshot == .empty { appState.refresh() }
-        }
-        .sheet(isPresented: $showingDiagnostics) {
-            DiagnosticsView()
-                .environmentObject(appState)
-        }
-        .sheet(isPresented: $showingRegistration) {
-            ProfileRegistrationView()
-                .environmentObject(appState)
         }
     }
 
@@ -224,8 +233,8 @@ private struct PlanSection: View {
 }
 
 struct DiagnosticsView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
+    let onDone: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -233,7 +242,7 @@ struct DiagnosticsView: View {
                 Text("网络诊断")
                     .font(.title3.weight(.semibold))
                 Spacer()
-                Button("完成") { dismiss() }
+                Button("完成", action: onDone)
                     .buttonStyle(.borderless)
             }
 
